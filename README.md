@@ -4,9 +4,9 @@ This repository contains a proof of concept of an attack on the OpenSSL implemen
 
 The call tree of our attack is the following:
 
-	* `SRP_Calc_client_key`: crypto/srp/srp_lib.c
-		* `BN_mod_exp`:  crypto/bn/bn_exp.c
-			* `BN_mod_exp_mont_word`:  crypto/bn/bn_exp.c
+	* SRP_Calc_client_key: crypto/srp/srp_lib.c
+		* BN_mod_exp:  crypto/bn/bn_exp.c
+			* BN_mod_exp_mont_word:  crypto/bn/bn_exp.c
 
 Roughly speaking, the vulnerability is caused by the nature non constant-time of the function `BN_mod_exp_mont_word`.
 The attack was tested on OpenSSL 1.1.1h, but should work on other versions too.
