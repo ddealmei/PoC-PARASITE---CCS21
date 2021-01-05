@@ -1,8 +1,9 @@
 # Proof of Concept attack on SRP
 
-This repository contains a proof of concept of an attack on the OpenSSL implementation of SRP (Secure Remote Password). We recall that, within SRP, a password (a shared secret of low entrpy) is involved into the ephemral key generation process. By design, SRP was designed to resist against offline dictionary attacks. However, we show that such attacks are still possible to recover the used password efficiently, by exploiting some data leakage during an insecure modular exponentiation.
+This repository contains a proof of concept of an attack on the OpenSSL implementation of SRP (Secure Remote Password). We recall that, within SRP, a password (a shared secret of low entrpy) is involved into the ephemral key generation process. By design, SRP resists offline dictionary attacks. However, we show that such attacks are still possible to recover the used password efficiently, by exploiting some data leakage during an insecure modular exponentiation.
 
 The call tree of our attack is the following:
+
 	* `SRP_Calc_client_key`: crypto/srp/srp_lib.c
 		* `BN_mod_exp`:  crypto/bn/bn_exp.c
 			* `BN_mod_exp_mont_word`:  crypto/bn/bn_exp.c
