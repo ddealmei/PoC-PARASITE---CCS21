@@ -1,11 +1,19 @@
 # Proof of Concept attack on SRP
 
-This repository contains a proof of concept of an attack on OpenSSL's implementation of SRP, allowing an attacker to recover the password using an offline dictionary attack, exploiting some data leaked through a side channel during an insecure modular exponentiation.
+This repository contains a proof of concept of an attack on the OpenSSL implementation of SRP (Secure Remote Password). We recall that, within SRP, a password (a shared secret of low entrpy) is involved into the ephemral key generation process. By design, SRP was designed to resist against offline dictionary attacks. However, we show that such attacks are still possible to recover the used password efficiently, by exploiting some data leakage during an insecure modular exponentiation.
+
+The call tree of our attack is the following:
+	* `SRP_Calc_client_key`: crypto/srp/srp_lib.c
+		* `BN_mod_exp`:  crypto/bn/bn_exp.c
+			* `BN_mod_exp_mont_word`:  crypto/bn/bn_exp.c
+
+Roughly speaking, the vulnerability is caused by the nature non constant-time of the function `BN_mod_exp_mont_word`.
+The attack was tested on OpenSSL 1.1.1h, but should work on other versions too.
 
 ## Repository layout
 
-* PoC_material/ contains all material to be used to build the docker
-* shared_folder/ will be shared between the docker and the host, making it easier to transmit files. Namely, it contains a sample of the data we were able to extract during our experiment.
+* PoC_material: contains all the materials to be used to build the docker
+* shared_folder: is shared between the docker and the host, making it easier to transmit files. Namely, it contains a sample of the data we were able to extract during our experiment.
 
 ## Core idea of the attack
 
@@ -14,23 +22,23 @@ During the *Key commitment* part of SRP, the client computes the verifier *v = g
 Due to a lack of constant-time flags and the use of small base in SRP, the modular exponentiation method `BN_mod_exp` calls `BN_mod_exp_mont_word`.
 
 This quick exponentiation relies on Montgomery exponentiation, using a square and multiply approach. A word `w` is used as an accumulator to perform quick operation until it overflows. 
-When it first overflow, a variable is set to store the result in Montgomery form, which is then squared (using the Montgomery squaring) at each iteration, and updated whenever the word accumulator overflows.
+When it first overflows, a variable is set to store the result in Montgomery form, which is then squared (using the Montgomery squaring) at each iteration, and updated whenever the word accumulator overflows.
 
-Since the execution flow of this function vary along with the value of the exponent, an attacker is able to recover information on the binary value of the exponent, breaking the security of SRP.
+Since the execution flow of this function varies depending on the value of the exponent, an attacker is able to recover some information on the value of the exponent, breaking the security of SRP.
 
 ## Threat model
 
-To exploit it, the attackers need to be able to monitor the CPU cache, using a classical Flush+Reload attack for instance. To do so, we assume the attackers are able to deploy a spy process, with no specific privileges other than being able to read the OpenSSL dynamic library (which is a default permissions).
+To exploit it, the attackers need to be able to monitor the CPU cache, using a classical Flush+Reload attack for instance. To do so, we assume the attackers are able to deploy a spy process, with no specific privileges other than being able to read the OpenSSL dynamic library (which is a default permission).
 
-We assume OpenSSL to be built with a default configuration, meaning compiler optimization are enabled, and debugging mode is disabled.
+We assume that OpenSSL was built with its default configuration: compiler optimizations are enabled, and debugging mode is disabled.
 
 This spy process is assumed to run in background in order to record the CPU cache access to some specific functions.
 
 ## Run the PoC
 
-We provide a docker to avoid any compatibility issue. However, it is worth noting that the nature of our attack (cache side-channels) makes the exact outcome of the spy process dependent of the executing CPU, which might lead to less reliable results. We included a sample of our results in shared_folder/traces. 
+We provide a docker to avoid any compatibility issue. However, it is worth noting that the nature of our attack (cache side-channels) makes the exact outcome of the spy process dependent of the executing CPU, which might lead to less reliable results. This reliability issue can be solved with more automated approach concerning the cache attack. However, we decided not to focus on that for this PoC. Instead, we included a sample of our results in shared_folder/traces. 
 
-First, build the docker, which may take some times (longest part of our PoC):
+First, build the docker, which may take some time (longest part of our PoC):
 ```
 docker build --rm -t poc_openssl_srp .
 ```
