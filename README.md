@@ -25,7 +25,7 @@ Due to a lack of constant-time flags and the use of small base in SRP, the modul
 This quick exponentiation relies on Montgomery exponentiation, using a square and multiply approach. A word `w` is used as an accumulator to perform quick operation until it overflows. 
 When it first overflows, a variable is set to store the result in Montgomery form, which is then squared (using the Montgomery squaring) at each iteration, and updated whenever the word accumulator overflows.
 
-Since the execution flow of this function varies depending on the value of the exponent, an attacker is able to recover some information on the value of the exponent, breaking the security of SRP.
+Since the execution flow of this function varies depending on the value of the exponent, an attacker is able to recover some information on the value of the exponent. Then, the attacker leverages the leaked data in order to recover the used password by performing an offline dictionary attack, which breaks the security of SRP.
 
 ## Threat model
 
