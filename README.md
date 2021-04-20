@@ -1,24 +1,26 @@
 # Proof of Concept attack on SRP
 
-This repository contains a proof of concept of an attack on the OpenSSL implementation of SRP (Secure Remote Password). We recall that, within SRP, a password (a shared secret of low entrpy) is involved into the ephemeral key generation process. By design, SRP resists offline dictionary attacks. However, we show that such attacks are still possible to recover the used password efficiently, by exploiting some data leakage during an insecure modular exponentiation.
+This repository contains various proofs of concept of our attack on the OpenSSL big number modular exponentiation as used in SRP (Secure Remote Password). Since OpenSSL's implementation is used by several project and standard libraries, many projects are affected, as demonstrated by the few examples outlined in this repository.
 
-The call tree of our attack is the following:
+Regardless of the project, as long as they use an unpatched version of OpenSSL without fixing the issue, the vulnerability can be exploited similarly. 
 
-	* SRP_Calc_client_key: crypto/srp/srp_lib.c
-		* BN_mod_exp:  crypto/bn/bn_exp.c
-			* BN_mod_exp_mont_word:  crypto/bn/bn_exp.c
+We recall that, within SRP, a password (a shared secret of low entropy) is involved into the ephemeral key generation process. By design, SRP resists offline dictionary attacks. However, we show that such attacks are still possible to recover the used password efficiently, by exploiting some data leakage during an insecure modular exponentiation.
 
-Roughly speaking, the vulnerability is caused by the nature non constant-time of the function `BN_mod_exp_mont_word`.
-The attack was tested on OpenSSL 1.1.1h, but should work on other versions too.
+Roughly speaking, the vulnerability is caused by the non constant-time nature of the function `BN_mod_exp_mont_word`.
+The attack was tested on OpenSSL 1.1.1h, but should work on other versions up to OpenSSL 1.1.1i included.
 
 ## Repository layout
 
-* PoC_material: contains all the materials to be used to build the docker
-* shared_folder: is shared between the docker and the host, making it easier to transmit files. Namely, it contains a sample of the data we were able to extract during our experiment.
+Each directory contains a PoC on a different project as indicated by the name. For each PoC, we designed a Dockerfile to setup the required environment (namely, get the vulnerable version of the target and meet all required dependencies). Also the core attack is the same, we add to tweak some parameters from one project to another because they did not always support all groups and sometimes differ from the SRP standard implementation.
+
+* PoC_OpenSSL: contains the original attack, on OpenSSL implementation of SRP
+* PoC_PySRP: contains the attack on the python package pysrp, used in various projects including a ProtonMail client
+  
+Each repository contains instructions to be able to reproduce the attack. PoC_OpenSSL contains more information about the attack, since the vulnerability comes from this implementation.
 
 ## Core idea of the attack
 
-During the *Key commitment* part of SRP, the client computes the verifier *v = g^x mod p*, where *x* is directly related to the password (`x = H(salt, H(id:pwd))`). This operation is performed in `SRP_Calc_client_key_ex`, through a call to `BN_mod_exp`.
+During the *Key commitment* part of SRP, the client computes the verifier *v = g^x mod p*, where *x* is directly related to the password (`x = H(salt, H(id:pwd))`). OpenSSL performs this operation in `SRP_Calc_client_key_ex`, through a call to `BN_mod_exp`.
 
 Due to a lack of constant-time flags and the use of small base in SRP, the modular exponentiation method `BN_mod_exp` calls `BN_mod_exp_mont_word`.
 
@@ -29,44 +31,8 @@ Since the execution flow of this function varies depending on the value of the e
 
 ## Threat model
 
-To exploit it, the attackers need to be able to monitor the CPU cache, using a classical Flush+Reload attack for instance. To do so, we assume the attackers are able to deploy a spy process, with no specific privileges other than being able to read the OpenSSL dynamic library (which is a default permission).
+To exploit it, the attacker needs to be able to monitor the CPU cache, using a classical Flush+Reload attack for instance. To do so, we assume the attacker is able to deploy a spy process, with no specific privileges other than being able to read the OpenSSL dynamic library (which is a default permission).
 
 We assume that OpenSSL was built with its default configuration: compiler optimizations are enabled, and debugging mode is disabled.
 
 This spy process is assumed to run in background in order to record the CPU cache access to some specific functions.
-
-## Run the PoC
-
-We provide a docker to avoid any compatibility issue. However, it is worth noting that the nature of our attack (cache side-channels) makes the exact outcome of the spy process dependent of the executing CPU, which might lead to less reliable results. This reliability issue can be solved with more automated approach concerning the cache attack. However, we decided not to focus on that for this PoC. Instead, we included a sample of our results in shared_folder/traces. 
-
-First, build the docker, which may take some time (longest part of our PoC):
-```
-docker build --rm -t poc_openssl_srp .
-```
-Once the build is done, you can simply run it:
-```
-docker run --mount type=bind,source="$(pwd)"/shared_folder,target=/PoC_SRP/shared_folder -it poc_openssl_srp
-```
-
-Inside the docker, you may run the following command to reproduce our results:
-```bash
-# Launch the SRP simulation along with the spy process to acquire some traces
-./poc.sh -p superpassword
-# Interpret the execution trace generated by the spy process to extract information
-trace_parser.py traces_admin_superpassword_0102030405060708/* > infos_admin_superpassword_0102030405060708.txt
-# Given the extracted information, compute a matching score for all passwords in the dictionary. The lower the score, the higher the chance we found the correct password
-for info in $(cat infos_admin_superpassword_0102030405060708.txt | grep -v "Error");
-do
-    dict_reducer /usr/share/dict/rockyou.txt $info
-done
-```
-
-As mentioned above, the first step may be an issue on different CPU, so you may need to run the parsing and reduction on the data we provide to get reliable results.
-To do so, simply run:
-```bash
-trace_parser.py shared_folder/traces/traces_admin_dAdinretAm_0102030405060708/* > infos_admin_dAdinretAm_0102030405060708.txt
-for info in $(cat infos_admin_dAdinretAm_0102030405060708.txt | grep -v "Error");
-do
-    dict_reducer /usr/share/dict/rockyou.txt $info
-done
-```

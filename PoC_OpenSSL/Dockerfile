@@ -37,7 +37,7 @@ RUN gcc -g ./SRP_simulator/*.c -o /usr/local/bin/SRP_simulator -L/usr/local/lib/
 	make -C dict_reducer/; \
 	chmod +x spy/FR-trace spy/run_spy.sh trace_parser.py dict_reducer/dict_reducer; \
 	mv spy/FR-trace spy/run_spy.sh trace_parser.py dict_reducer/dict_reducer /usr/local/bin/; \
-	mkdir -p /PoC_SRP; \
-	cp -r poc.sh /PoC_SRP/;
+	mkdir -p /PoC_PARASITE; \
+	cp -r poc.sh /PoC_PARASITE/;
 
-WORKDIR /PoC_SRP
+WORKDIR /PoC_PARASITE
