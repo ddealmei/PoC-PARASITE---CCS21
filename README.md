@@ -15,7 +15,9 @@ Each directory contains a PoC on a different project as indicated by the name. F
 
 * PoC_OpenSSL: contains the original attack, on OpenSSL implementation of SRP
 * PoC_PySRP: contains the attack on the python package pysrp, used in various projects including a ProtonMail client
-  
+* PoC_AppleHomeKit: contains the attack on Apple ADK, the development kit for
+  Apple's HomeKit protocol support.
+
 Each repository contains instructions to be able to reproduce the attack. PoC_OpenSSL contains more information about the attack, since the vulnerability comes from this implementation.
 
 ## Core idea of the attack
